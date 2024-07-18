@@ -44,7 +44,7 @@ class TruncatedExponential:public ContinuousDistribution
         double lower, upper; // truncation bounds
 
         TruncatedExponential(double scale=1.0, double lower=0., double upper=1./0.);
-        void setpars(double scale); // setter
+        void setpars(double scale) override; // setter
 
         double cdf(double x) const override;
         double cdf_inverse(double p) const override;

@@ -21,7 +21,7 @@ class Laplace:public ContinuousDistribution
 
         Laplace(double center=0.0, double width=1.0);
         // setter
-        void setpars(double center, double width);
+        void setpars(double center, double width) override;
 
         double cdf(double x) const override;
         double cdf_inverse(double p) const override;
