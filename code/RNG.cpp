@@ -61,5 +61,11 @@ int RNG::rand_int(int N)
 	return static_cast<int>(floor(N*this->rand()));
 }
 
+int RNG::rand_int(int L, int U)
+{
+	int N = U + 1 - L;
+	return static_cast<int>(floor(L + N*this->rand()));
+}
+
 } // namespace DNest4
 
