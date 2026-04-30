@@ -34,7 +34,7 @@ Sampler<ModelType>::Sampler(unsigned int num_threads, double compression,
 ,count_mcmc_steps(0)
 ,difficulty(1.0)
 ,work_ratio(1.0)
-,show_progress_bar(false)
+,progress_bar(false)
 ,above(num_threads)
 {
 	assert(num_threads >= 1);
@@ -87,10 +87,12 @@ void Sampler<ModelType>::initialise(unsigned int first_seed)
 }
 
 template<class ModelType>
-void Sampler<ModelType>::run(unsigned int thin)
+void Sampler<ModelType>::run(unsigned int thin, bool show_progress_bar)
 {
 	// Set the thining of terminal output
 	thin_print = thin;
+	// Showing the progress bar?
+	progress_bar = show_progress_bar;
 
 #ifndef NO_THREADS
 	// Set up threads and barrier
@@ -394,7 +396,7 @@ void Sampler<ModelType>::do_bookkeeping()
 		std::sort(all_above.begin(), all_above.end());
 		int index = static_cast<int>((1. - 1./compression)*all_above.size());
 
-		if (!show_progress_bar) {
+		if (!progress_bar) {
 			std::cout<<"# Creating level "<<levels.size()<<" with log likelihood = ";
 			std::cout<<std::setprecision(12);
 			std::cout<<all_above[index].get_value()<<"."<<std::endl;
@@ -414,7 +416,7 @@ void Sampler<ModelType>::do_bookkeeping()
 			all_above.clear();
             options.max_num_levels = levels.size();
 
-			if (!show_progress_bar) {
+			if (!progress_bar) {
 				std::cout<<"# Done creating levels."<<std::endl;
 			}
 		}
@@ -558,7 +560,7 @@ void Sampler<ModelType>::save_particle()
 	if(!save_to_disk)
 		return;
 
-	if (show_progress_bar) {
+	if (progress_bar) {
 		bar.update();
 	}
 	else {
@@ -633,7 +635,7 @@ void Sampler<ModelType>::kill_lagging_particles()
 				level_assignments[i] = level_assignments[i_copy];
 				++deletions;
 
-				if (!show_progress_bar) {
+				if (!progress_bar) {
 					std::cout<<"# Replacing lagging particle.";
 					std::cout<<" This has happened "<<deletions;
 					std::cout<<" times."<<std::endl;
