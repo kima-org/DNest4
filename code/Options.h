@@ -24,7 +24,7 @@ class Options
 		unsigned int new_level_interval;
 		unsigned int save_interval;
 		unsigned int thread_steps;
-		unsigned int max_num_levels;
+		int max_num_levels;
 		double lambda, beta;
 		unsigned int max_num_saves;
 
@@ -39,7 +39,7 @@ class Options
 			unsigned int new_level_interval,
 			unsigned int save_interval,
 			unsigned int thread_steps,
-			unsigned int max_num_levels,
+			int max_num_levels,
 			double lambda,
 			double beta,
 			unsigned int max_num_saves);

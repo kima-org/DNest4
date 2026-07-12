@@ -249,7 +249,7 @@ void Sampler<ModelType>::update_level_assignment(unsigned int thread,
 	log_A += log_push(proposal) - log_push(level_assignments[which]);
 
 	// Enforce uniform exploration part (if all levels exist)
-	if(_levels.size() == options.max_num_levels)
+	if((int)_levels.size() == options.max_num_levels)
 		log_A += options.beta*log((double)(_levels[level_assignments[which]].get_tries() + 1)/(double)(_levels[proposal].get_tries() + 1));
 
 	// Prevent exponentiation of huge numbers
@@ -343,26 +343,27 @@ void Sampler<ModelType>::increase_max_num_saves(unsigned int increment)
 template<class ModelType>
 bool Sampler<ModelType>::enough_levels(const std::vector<Level>& ls) const
 {
-    if(options.max_num_levels == 0)
+    if(options.max_num_levels <= 0)
     {
         std::vector<double> logx_plus_logl(ls.size());
         for(size_t i=0; i<ls.size(); ++i)
         {
             logx_plus_logl[i] = -double(i)*log(compression)
                                     + ls[i].get_log_likelihood().get_value();
-/*            std::cout << (-double(i)*log(compression)) << ' ' << compression << std::endl;*/
         }
 
         double max = *std::max_element(logx_plus_logl.begin(),
                                        logx_plus_logl.end());
-        if(ls.size() > 20 && logx_plus_logl.back() < max + log(1E-6))
+
+        double factor = (-options.max_num_levels) + 1.0;
+        if((int)ls.size() > 20 && logx_plus_logl.back() < max + factor*log(1E-6))
             return true;
 
         return false;
     }
 
     // Just compare with the value from OPTIONS
-    return (ls.size() >= options.max_num_levels);   
+    return ((int)ls.size() >= options.max_num_levels);   
 }
 
 template<class ModelType>
