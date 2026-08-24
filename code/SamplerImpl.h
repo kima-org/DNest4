@@ -12,8 +12,7 @@ namespace DNest4
 
 template<class ModelType>
 Sampler<ModelType>::Sampler(unsigned int num_threads, double compression,
-							const Options& options, bool save_to_disk,
-                            bool _adaptive)
+							const Options& options, bool save_to_disk)
 :save_to_disk(save_to_disk)
 ,thin_print(1)
 ,threads(num_threads, nullptr)
@@ -21,7 +20,6 @@ Sampler<ModelType>::Sampler(unsigned int num_threads, double compression,
 ,num_threads(num_threads)
 ,compression(compression)
 ,options(options)
-,adaptive(_adaptive)
 ,particles(options.num_particles*num_threads)
 ,log_likelihoods(options.num_particles*num_threads)
 ,level_assignments(options.num_particles*num_threads, 0)
@@ -32,8 +30,6 @@ Sampler<ModelType>::Sampler(unsigned int num_threads, double compression,
 ,count_saves(0)
 ,count_mcmc_steps_since_save(0)
 ,count_mcmc_steps(0)
-,difficulty(1.0)
-,work_ratio(1.0)
 ,progress_bar(false)
 ,above(num_threads)
 {
@@ -209,7 +205,7 @@ void Sampler<ModelType>::update_particle(unsigned int thread, unsigned int which
 	    // Accept?
 	    if(level.get_log_likelihood() < logl_proposal)
 	    {
-		    particle = proposal;
+		    particle = std::move(proposal);
 		    logl = logl_proposal;
 		    level.increment_accepts(1);
 	    }
@@ -259,7 +255,7 @@ void Sampler<ModelType>::update_level_assignment(unsigned int thread,
 	log_A += log_push(proposal) - log_push(level_assignments[which]);
 
 	// Enforce uniform exploration part (if all levels exist)
-	if(_levels.size() == options.max_num_levels)
+	if((int)_levels.size() == options.max_num_levels)
 		log_A += options.beta*log((double)(_levels[level_assignments[which]].get_tries() + 1)/(double)(_levels[proposal].get_tries() + 1));
 
 	// Prevent exponentiation of huge numbers
@@ -351,36 +347,29 @@ void Sampler<ModelType>::increase_max_num_saves(unsigned int increment)
 }
 
 template<class ModelType>
-bool Sampler<ModelType>::enough_levels(const std::vector<Level>& l) const
+bool Sampler<ModelType>::enough_levels(const std::vector<Level>& ls) const
 {
-    if(options.max_num_levels == 0)
+    if(options.max_num_levels <= 0)
     {
-        // Check level spacing (in terms of log likelihood)
-        // over last n levels
-        int num_levels_to_check = static_cast<int>(30*sqrt(0.02*l.size()));
-        if(num_levels_to_check < 30)
-            return false;
-
-        int k = l.size() - 1;
-        double tot = 0.0;
-        double max = -1E300;
-        for(int i=0; i<num_levels_to_check; ++i)
+        std::vector<double> logx_plus_logl(ls.size());
+        for(size_t i=0; i<ls.size(); ++i)
         {
-            double diff = l[k].get_log_likelihood().get_value()
-                             - l[k-1].get_log_likelihood().get_value();
-            tot += diff;
-            if(diff > max)
-                max = diff;
-            --k;
+            logx_plus_logl[i] = -double(i)*log(compression)
+                                    + ls[i].get_log_likelihood().get_value();
         }
-        if(tot / num_levels_to_check < 0.75 && max < 1.0)
+
+        double max = *std::max_element(logx_plus_logl.begin(),
+                                       logx_plus_logl.end());
+
+        double factor = (-options.max_num_levels) + 1.0;
+        if((int)ls.size() > 20 && logx_plus_logl.back() < max + factor*log(1E-6))
             return true;
-        else
-            return false;
+
+        return false;
     }
 
     // Just compare with the value from OPTIONS
-    return (l.size() >= options.max_num_levels);   
+    return ((int)ls.size() >= options.max_num_levels);   
 }
 
 template<class ModelType>
@@ -434,33 +423,6 @@ void Sampler<ModelType>::do_bookkeeping()
                         options.new_level_interval*sqrt(options.lambda));
 
 
-    if(!enough_levels(levels) && adaptive)
-    {
-        // Compute difficulty as a weighted average of compression deviations
-        // from the target value
-        double gap_norm_tot = 0.0;
-        double weight_tot = 0.0;
-        for(size_t i=1; i<levels.size(); ++i)
-        {
-            // Departure of log(X) differences from target value.
-            double gap = (levels[i-1].get_log_X() - levels[i].get_log_X())
-                            - log(compression);
-            double weight = exp(((int)i - (int)levels.size())/3.0);
-            gap_norm_tot += weight*std::abs(gap)/log(compression);
-            weight_tot += weight;
-        }
-        difficulty = gap_norm_tot / weight_tot;
-
-        double work_ratio_max = 20.0/sqrt(options.lambda);
-        double coeff = (work_ratio_max - 1.0)/(0.1 - 0.02); 
-        if(difficulty >= 0.1)
-            work_ratio = work_ratio_max;
-        else if(difficulty >= 0.02)
-            work_ratio = 1.0 + coeff*(difficulty - 0.02);
-        else
-            work_ratio = 1.0;
-    }
-
 	// Save levels if one was created
 	if(created_level)
 		save_levels();
@@ -473,13 +435,6 @@ void Sampler<ModelType>::do_bookkeeping()
 		if(!created_level)
 			save_levels();
 
-
-        // Print work ratio
-        if(!enough_levels(levels) && adaptive)
-        {
-            std::cout << "# Difficulty = " << difficulty << ".\n";
-            std::cout << "# Work ratio = " << work_ratio << ".\n" << std::endl;
-        }
 	}
 
     // Check for a new record holder
@@ -500,7 +455,7 @@ double Sampler<ModelType>::log_push(unsigned int which_level) const
 		return 0.0;
 
 	int i = which_level - (static_cast<int>(levels.size()) - 1);
-	return static_cast<double>(i)/(work_ratio*options.lambda);
+	return static_cast<double>(i)/options.lambda;
 }
 
 template<class ModelType>

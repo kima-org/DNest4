@@ -3,35 +3,20 @@
 
 #include "DNest4/code/DNest4.h"
 #include <ostream>
-#include <pthread.h>
+#include "ModelServer.hpp"
 
-/* simple pthread mutex implementation */
-class Mutex {
-private:
-    pthread_mutex_t mutex;
 
-public:
-    Mutex() { pthread_mutex_init(&mutex, 0); }
-
-    void lock() { pthread_mutex_lock(&mutex); }
-    void unlock() { pthread_mutex_unlock(&mutex); }
-};
-
-/* static mutex making sure only one
-   thread can enter R at any given point.
-   Note that it cannot be a member of MyModel
-   since some methods are const */
-static Mutex Rmux;
 
 class MyModel
 {
     private:
-
         // Parameter vector with Uniform(0, 1) priors
+        std::vector<double> us;
         std::vector<double> params;
+        double logl;
 
     public:
-        // Constructor only gives size of params
+        // Constructor only gives size of us
         MyModel();
 
         // Generate the point from the prior
