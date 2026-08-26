@@ -351,6 +351,12 @@ bool Sampler<ModelType>::enough_levels(const std::vector<Level>& ls) const
 {
     if(options.max_num_levels <= 0)
     {
+        // If required, check if the target log likelihood has been reached
+        if (!std::isinf(options.target_loglikelihood)
+            && best_ever_log_likelihood.get_value() < options.target_loglikelihood
+        )
+            return false;
+
         std::vector<double> logx_plus_logl(ls.size());
         for(size_t i=0; i<ls.size(); ++i)
         {
